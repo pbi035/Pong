@@ -58,22 +58,18 @@
       <!-- PID Tuning Tab -->
       <div id="pid" class="tab-content hidden">
         <h2 class="text-lg font-semibold text-gray-700 mb-4">PID Tuning</h2>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-3 gap-4">
           <div>
             <label class="block text-gray-600">Kp</label>
-            <input id="kp" type="number" step="0.1" value="60.0" class="w-full border rounded p-2" disabled>
+            <input id="kp" type="number" step="0.1" value="1.0" class="w-full border rounded p-2" disabled>
           </div>
           <div>
             <label class="block text-gray-600">Ki</label>
-            <input id="ki" type="number" step="0.1" value="270.0" class="w-full border rounded p-2" disabled>
+            <input id="ki" type="number" step="0.1" value="0.1" class="w-full border rounded p-2" disabled>
           </div>
           <div>
             <label class="block text-gray-600">Kd</label>
-            <input id="kd" type="number" step="0.1" value="2.2" class="w-full border rounded p-2" disabled>
-          </div>
-          <div>
-            <label class="block text-gray-600">Setpoint</label>
-            <input id="setpoint" type="number" step="0.1" value="3.8" class="w-full border rounded p-2" disabled>
+            <input id="kd" type="number" step="0.1" value="0.5" class="w-full border rounded p-2" disabled>
           </div>
         </div>
         <button id="updatePID" disabled class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Update PID</button>
@@ -84,28 +80,16 @@
         <h2 class="text-lg font-semibold text-gray-700 mb-4">Sensor Data</h2>
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <p class="text-gray-600">Accelerometer X: <span id="accX">N/A</span> g</p>
+            <p class="text-gray-600">Temperature: <span id="temperature">N/A</span> °C</p>
           </div>
           <div>
-            <p class="text-gray-600">Accelerometer Y: <span id="accY">N/A</span> g</p>
+            <p class="text-gray-600">Gyroscope: <span id="gyroscope">N/A</span></p>
           </div>
           <div>
-            <p class="text-gray-600">Accelerometer Z: <span id="accZ">N/A</span> g</p>
+            <p class="text-gray-600">Accelerometer: <span id="accelerometer">N/A</span></p>
           </div>
           <div>
-            <p class="text-gray-600">Gyroscope X: <span id="gyroX">N/A</span> deg/s</p>
-          </div>
-          <div>
-            <p class="text-gray-600">Gyroscope Y: <span id="gyroY">N/A</span> deg/s</p>
-          </div>
-          <div>
-            <p class="text-gray-600">Gyroscope Z: <span id="gyroZ">N/A</span> deg/s</p>
-          </div>
-          <div>
-            <p class="text-gray-600">Motor Speed: <span id="motorSpeed">N/A</span></p>
-          </div>
-          <div>
-            <p class="text-gray-600">Mode: <span id="mode">N/A</span></p>
+            <p class="text-gray-600">Battery: <span id="battery">N/A</span>%</p>
           </div>
         </div>
       </div>
@@ -208,42 +192,30 @@
       const value = new TextDecoder().decode(event.target.value);
       log(`Received: ${value}`);
 
-      // Parse sensor data (format: "accX,accY,accZ,gyroX,gyroY,gyroZ,angle,motorSpeed,mode")
-      const data = value.split(',');
-      if (data.length >= 9) {
-        const sensorData = {
-          accX: parseFloat(data[0]),
-          accY: parseFloat(data[1]),
-          accZ: parseFloat(data[2]),
-          gyroX: parseFloat(data[3]),
-          gyroY: parseFloat(data[4]),
-          gyroZ: parseFloat(data[5]),
-          angle: parseFloat(data[6]),
-          motorSpeed: parseInt(data[7]),
-          mode: parseInt(data[8])
-        };
+      // Parse sensor data (assuming format: "SENSOR:TEMP=25.5,GYRO=1.2,ACC=0.9,BATT=75,ANGLE=10.5")
+      if (value.startsWith('SENSOR:')) {
+        const data = value.split(':')[1].split(',');
+        const sensorData = {};
+        data.forEach(item => {
+          const [key, val] = item.split('=');
+          sensorData[key] = parseFloat(val);
+        });
 
         // Update sensor display
-        document.getElementById('accX').textContent = sensorData.accX.toFixed(2);
-        document.getElementById('accY').textContent = sensorData.accY.toFixed(2);
-        document.getElementById('accZ').textContent = sensorData.accZ.toFixed(2);
-        document.getElementById('gyroX').textContent = sensorData.gyroX.toFixed(2);
-        document.getElementById('gyroY').textContent = sensorData.gyroY.toFixed(2);
-        document.getElementById('gyroZ').textContent = sensorData.gyroZ.toFixed(2);
-        document.getElementById('motorSpeed').textContent = sensorData.motorSpeed;
-        document.getElementById('mode').textContent = sensorData.mode === 0 ? 'Balancing' : 'Control';
-
-        // Update mode status
-        isControlMode = sensorData.mode === 1;
-        document.getElementById('modeStatus').textContent = isControlMode ? 'Control Mode' : 'Balancing Mode';
+        document.getElementById('temperature').textContent = sensorData.TEMP || 'N/A';
+        document.getElementById('gyroscope').textContent = sensorData.GYRO || 'N/A';
+        document.getElementById('accelerometer').textContent = sensorData.ACC || 'N/A';
+        document.getElementById('battery').textContent = sensorData.BATT || 'N/A';
 
         // Update angle chart
-        const time = new Date().toLocaleTimeString();
-        angleData.push({ time, angle: sensorData.angle });
-        if (angleData.length > 50) angleData.shift();
-        angleChart.data.labels = angleData.map(d => d.time);
-        angleChart.data.datasets[0].data = angleData.map(d => d.angle);
-        angleChart.update();
+        if (sensorData.ANGLE) {
+          const time = new Date().toLocaleTimeString();
+          angleData.push({ time, angle: sensorData.ANGLE });
+          if (angleData.length > 50) angleData.shift(); // Keep last 50 points
+          angleChart.data.labels = angleData.map(d => d.time);
+          angleChart.data.datasets[0].data = angleData.map(d => d.angle);
+          angleChart.update();
+        }
       }
     };
 
@@ -256,16 +228,15 @@
     };
 
     const enableControls = (enabled) => {
-      document.getElementById('forward').disabled = !enabled || !isControlMode;
-      document.getElementById('backward').disabled = !enabled || !isControlMode;
-      document.getElementById('left').disabled = !enabled || !isControlMode;
-      document.getElementById('right').disabled = !enabled || !isControlMode;
-      document.getElementById('stop').disabled = !enabled || !isControlMode;
+      document.getElementById('forward').disabled = !enabled;
+      document.getElementById('backward').disabled = !enabled;
+      document.getElementById('left').disabled = !enabled;
+      document.getElementById('right').disabled = !enabled;
+      document.getElementById('stop').disabled = !enabled;
       document.getElementById('switchMode').disabled = !enabled;
       document.getElementById('kp').disabled = !enabled;
       document.getElementById('ki').disabled = !enabled;
       document.getElementById('kd').disabled = !enabled;
-      document.getElementById('setpoint').disabled = !enabled;
       document.getElementById('updatePID').disabled = !enabled;
     };
 
@@ -294,16 +265,14 @@
       sendCommand(`MODE:${isControlMode ? 1 : 0}`);
       log(`Switched to ${isControlMode ? 'Control Mode' : 'Balancing Mode'}`);
       document.getElementById('modeStatus').textContent = isControlMode ? 'Control Mode' : 'Balancing Mode';
-      enableControls(bleDevice && bleDevice.gatt.connected);
     });
 
     document.getElementById('updatePID').addEventListener('click', () => {
       const kp = document.getElementById('kp').value;
       const ki = document.getElementById('ki').value;
       const kd = document.getElementById('kd').value;
-      const setpoint = document.getElementById('setpoint').value;
-      sendCommand(`PID:${kp},${ki},${kd},${setpoint}`);
-      log(`Updated PID: Kp=${kp}, Ki=${ki}, Kd=${kd}, Setpoint=${setpoint}`);
+      sendCommand(`PID:${kp},${ki},${kd}`);
+      log(`Updated PID: Kp=${kp}, Ki=${ki}, Kd=${kd}`);
     });
 
     // Show controls tab by default
