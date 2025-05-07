@@ -146,13 +146,13 @@
       <p>GyroX: <span id="gyroX">0.00</span></p>
       <p>GyroY: <span id="gyroY">0.00</span></p>
       <p>GyroZ: <span id="gyroZ">0.00</span></p>
-      <p>Angle: <span id="angle">0.00</span> degrees</p>
+      <p>Angle (Pitch): <span id="angle">0.00</span> degrees</p>
       <p>Motor Speed: <span id="motorSpeed">0</span></p>
     </div>
 
     <!-- Tilt Angle Graph -->
     <div class="section graph">
-      <h3>Tilt Angle Over Time</h3>
+      <h3>Pitch Angle (Y-axis Rotation) Over Time</h3>
       <canvas id="angleChart"></canvas>
     </div>
   </div>
@@ -169,7 +169,7 @@
       data: {
         labels: [],
         datasets: [{
-          label: 'Tilt Angle (degrees)',
+          label: 'Pitch Angle (Y-axis Rotation)',
           data: [],
           borderColor: '#e74c3c',
           backgroundColor: 'rgba(231, 76, 60, 0.1)',
