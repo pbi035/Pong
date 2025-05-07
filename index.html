@@ -1,307 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Self-Balancing Robot Control</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f4f6f9;
-      color: #333;
-    }
-    .container {
-      max-width: 1000px;
-      margin: auto;
-      display: grid;
-      gap: 20px;
-    }
-    .section {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    h2, h3 {
-      margin: 0 0 15px;
-      color: #2c3e50;
-    }
-    h2 {
-      text-align: center;
-      font-size: 2em;
-    }
-    .connection-controls, .mode-movement, .control-params, .sensor-data, .graph {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: flex-start;
-    }
-    .connection-controls {
-      justify-content: center;
-    }
-    .mode-movement {
-      justify-content: space-between;
-    }
-    .control-params {
-      flex-direction: column;
-    }
-    .sensor-data p {
-      margin: 5px 0;
-      font-size: 0.95em;
-    }
-    .graph {
-      justify-content: center;
-    }
-    .graph canvas {
-      width: 400px !important;
-      height: 600px !important;
-    }
-    input, button {
-      padding: 8px 12px;
-      border-radius: 5px;
-      border: 1px solid #ddd;
-      font-size: 0.95em;
-    }
-    button {
-      background-color: #3498db;
-      color: white;
-      border: none;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover:not(.disabled) {
-      background-color: #2980b9;
-    }
-    .disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-    #status {
-      font-weight: bold;
-      color: #27ae60;
-    }
-    label {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    input[type="number"] {
-      width: 100px;
-    }
-    @media (max-width: 600px) {
-      .mode-movement {
-        flex-direction: column;
-      }
-      .graph canvas {
-        width: 300px !important;
-        height: 450px !important;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Balancing Robot Control</title>
 </head>
 <body>
-  <div class="container">
-    <h2>Self-Balancing Robot Control</h2>
-
-    <!-- Connection Controls -->
-    <div class="section connection-controls">
-      <div id="status">Disconnected</div>
-      <button onclick="connect()">Connect to Robot</button>
-      <button onclick="disconnect()">Disconnect</button>
+    <h1>Self-Balancing Robot Control</h1>
+    <button id="connectButton">Connect</button>
+    <div id="controls" style="display:none;">
+        <h2>Controls</h2>
+        <h3>PID Parameters</h3>
+        <label for="kp">Kp:</label>
+        <input type="number" id="kp" step="0.1" value="60.0"><br>
+        <label for="ki">Ki:</label>
+        <input type="number" id="ki" step="0.1" value="270.0"><br>
+        <label for="kd">Kd:</label>
+        <input type="number" id="kd" step="0.1" value="2.2"><br>
+        <label for="setpoint">Setpoint (offset angle):</label>
+        <input type="number" id="setpoint" step="0.1" value="1.2"><br>
+        <button id="updatePID">Update PID</button><br>
+        
+        <h3>Mode</h3>
+        <label for="mode">Mode:</label>
+        <select id="mode">
+            <option value="0">Balancing</option>
+            <option value="1">Control</option>
+        </select><br>
+        
+        <h3>Commands (only in Control Mode)</h3>
+        <button id="fwd">Forward</button>
+        <button id="bwd">Backward</button>
+        <button id="left">Left</button>
+        <button id="right">Right</button>
+        <button id="stop">Stop</button><br>
+        
+        <h3>Current Status</h3>
+        <label for="angle">Current Angle:</label>
+        <span id="angle">0.0</span> degrees<br>
+        
+        <button id="disconnectButton">Disconnect</button>
     </div>
-
-    <!-- Mode and Movement -->
-    <div class="section mode-movement">
-      <div>
-        <h3>Mode Control</h3>
-        <button onclick="switchMode()">Switch Mode</button>
-        <p>Current Mode: <span id="mode">Balancing</span></p>
-      </div>
-      <div>
-        <h3>Movement (Control Mode Only)</h3>
-        <button id="fwdBtn" onclick="moveForward()" disabled>Forward</button>
-        <button id="bwdBtn" onclick="moveBackward()" disabled>Backward</button>
-      </div>
-    </div>
-
-    <!-- Control Parameters -->
-    <div class="section control-params">
-      <h3>Control Parameters</h3>
-      <label>KP: <input type="number" id="kp" step="0.1" value="60.0"></label>
-      <label>KI: <input type="number" id="ki" step="0.1" value="270.0"></label>
-      <label>KD: <input type="number" id="kd" step="0.1" value="2.2"></label>
-      <label>Offset Angle: <input type="number" id="offset" step="0.1" value="1.2"></label>
-      <button onclick="updatePID()">Update PID</button>
-    </div>
-
-    <!-- Sensor Data -->
-    <div class="section sensor-data">
-      <h3>Sensor Data</h3>
-      <p>AccX: <span id="accX">0.00</span></p>
-      <p>AccY: <span id="accY">0.00</span></p>
-      <p>AccZ: <span id="accZ">0.00</span></p>
-      <p>GyroX: <span id="gyroX">0.00</span></p>
-      <p>GyroY: <span id="gyroY">0.00</span></p>
-      <p>GyroZ: <span id="gyroZ">0.00</span></p>
-      <p>Angle (Pitch): <span id="angle">0.00</span> degrees</p>
-      <p>Motor Speed: <span id="motorSpeed">0</span></p>
-    </div>
-
-    <!-- Tilt Angle Graph -->
-    <div class="section graph">
-      <h3>Pitch Angle (Y-axis Rotation) Over Time</h3>
-      <canvas id="angleChart"></canvas>
-    </div>
-  </div>
-
-  <script>
-    let device;
-    let characteristic;
-    let currentMode = 0; // 0: Balancing, 1: Control
-
-    // Chart.js Setup
-    const ctx = document.getElementById('angleChart').getContext('2d');
-    const angleChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Pitch Angle (Y-axis Rotation)',
-          data: [],
-          borderColor: '#e74c3c',
-          backgroundColor: 'rgba(231, 76, 60, 0.1)',
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: {
-        responsive: false,
-        scales: {
-          x: {
-            title: { display: true, text: 'Time' },
-            maxTicksLimit: 10
-          },
-          y: {
-            title: { display: true, text: 'Angle (degrees)' },
-            suggestedMin: -40,
-            suggestedMax: 40
-          }
-        },
-        plugins: {
-          legend: { display: true }
+    
+    <script>
+        let device;
+        let server;
+        let service;
+        let characteristic;
+        
+        document.getElementById('connectButton').addEventListener('click', connect);
+        
+        async function connect() {
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'] }]
+                });
+                server = await device.gatt.connect();
+                service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
+                characteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
+                
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', handleData);
+                
+                document.getElementById('controls').style.display = 'block';
+                
+                device.addEventListener('gattserverdisconnected', () => {
+                    console.log('Device disconnected');
+                    document.getElementById('controls').style.display = 'none';
+                });
+            } catch (error) {
+                console.error('Connection error:', error);
+            }
         }
-      }
-    });
-
-    // Update chart with new angle data
-    function updateChart(angle) {
-      const time = new Date().toLocaleTimeString();
-      angleChart.data.labels.push(time);
-      angleChart.data.datasets[0].data.push(angle);
-
-      // Keep only the last 50 data points
-      if (angleChart.data.labels.length > 50) {
-        angleChart.data.labels.shift();
-        angleChart.data.datasets[0].data.shift();
-      }
-      angleChart.update();
-    }
-
-    async function connect() {
-      try {
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'] }]
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
-        characteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
-        await characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', handleData);
-        document.getElementById('status').textContent = 'Connected';
-      } catch (error) {
-        console.error('Connection failed:', error);
-        document.getElementById('status').textContent = 'Connection failed';
-      }
-    }
-
-    function disconnect() {
-      if (device && device.gatt.connected) {
-        device.gatt.disconnect();
-        document.getElementById('status').textContent = 'Disconnected';
-        currentMode = 0;
-        updateModeUI();
-        // Reset chart
-        angleChart.data.labels = [];
-        angleChart.data.datasets[0].data = [];
-        angleChart.update();
-      }
-    }
-
-    function handleData(event) {
-      const value = event.target.value;
-      const data = new TextDecoder().decode(value).split(',');
-      document.getElementById('accX').textContent = data[0];
-      document.getElementById('accY').textContent = data[1];
-      document.getElementById('accZ').textContent = data[2];
-      document.getElementById('gyroX').textContent = data[3];
-      document.getElementById('gyroY').textContent = data[4];
-      document.getElementById('gyroZ').textContent = data[5];
-      const angle = parseFloat(data[6]);
-      document.getElementById('angle').textContent = angle.toFixed(2);
-      document.getElementById('motorSpeed').textContent = data[7];
-      currentMode = parseInt(data[8]);
-      updateModeUI();
-      updateChart(angle);
-    }
-
-    function updateModeUI() {
-      const modeText = currentMode == 0 ? 'Balancing' : 'Control';
-      document.getElementById('mode').textContent = modeText;
-      const fwdBtn = document.getElementById('fwdBtn');
-      const bwdBtn = document.getElementById('bwdBtn');
-      if (currentMode == 1) {
-        fwdBtn.disabled = false;
-        bwdBtn.disabled = false;
-        fwdBtn.classList.remove('disabled');
-        bwdBtn.classList.remove('disabled');
-      } else {
-        fwdBtn.disabled = true;
-        bwdBtn.disabled = true;
-        fwdBtn.classList.add('disabled');
-        bwdBtn.classList.add('disabled');
-      }
-    }
-
-    function switchMode() {
-      if (!device || !device.gatt.connected) return;
-      currentMode = currentMode == 0 ? 1 : 0;
-      const cmd = `MODE:${currentMode}`;
-      characteristic.writeValue(new TextEncoder().encode(cmd));
-    }
-
-    function moveForward() {
-      if (currentMode != 1 || !device || !device.gatt.connected) return;
-      characteristic.writeValue(new TextEncoder().encode('CMD:FWD'));
-    }
-
-    function moveBackward() {
-      if (currentMode != 1 || !device || !device.gatt.connected) return;
-      characteristic.writeValue(new TextEncoder().encode('CMD:BWD'));
-    }
-
-    function updatePID() {
-      const kp = document.getElementById('kp').value;
-      const ki = document.getElementById('ki').value;
-      const kd = document.getElementById('kd').value;
-      const offset = document.getElementById('offset').value;
-      const cmd = `PID:${kp},${ki},${kd},${offset}`;
-      characteristic.writeValue(new TextEncoder().encode(cmd));
-    }
-
-    window.onbeforeunload = () => disconnect();
-  </script>
+        
+        function handleData(event) {
+            const value = event.target.value;
+            const data = new TextDecoder().decode(value);
+            const parts = data.split(',');
+            if (parts.length >= 9) {
+                const angle = parseFloat(parts[6]);
+                document.getElementById('angle').textContent = angle.toFixed(1);
+                const currentMode = parseInt(parts[8]);
+                document.getElementById('mode').value = currentMode;
+            }
+        }
+        
+        document.getElementById('updatePID').addEventListener('click', updatePID);
+        
+        async function updatePID() {
+            const kp = document.getElementById('kp').value;
+            const ki = document.getElementById('ki').value;
+            const kd = document.getElementById('kd').value;
+            const setpoint = document.getElementById('setpoint').value;
+            const message = `PID:${kp},${ki},${kd},${setpoint}`;
+            await characteristic.writeValue(new TextEncoder().encode(message));
+        }
+        
+        document.getElementById('mode').addEventListener('change', changeMode);
+        
+        async function changeMode() {
+            const mode = document.getElementById('mode').value;
+            const message = `MODE:${mode}`;
+            await characteristic.writeValue(new TextEncoder().encode(message));
+        }
+        
+        document.getElementById('fwd').addEventListener('click', () => sendCommand('FWD'));
+        document.getElementById('bwd').addEventListener('click', () => sendCommand('BWD'));
+        document.getElementById('left').addEventListener('click', () => sendCommand('LEFT'));
+        document.getElementById('right').addEventListener('click', () => sendCommand('RIGHT'));
+        document.getElementById('stop').addEventListener('click', () => sendCommand('STOP'));
+        
+        async function sendCommand(cmd) {
+            const message = `CMD:${cmd}`;
+            await characteristic.writeValue(new TextEncoder().encode(message));
+        }
+        
+        document.getElementById('disconnectButton').addEventListener('click', disconnect);
+        
+        async function disconnect() {
+            if (device && device.gatt.connected) {
+                await device.gatt.disconnect();
+            }
+        }
+    </script>
 </body>
 </html>
