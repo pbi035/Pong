@@ -3,280 +3,305 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 BLE Controller</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Self-Balancing Robot Control</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f6f9;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      display: grid;
+      gap: 20px;
+    }
+    .section {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    h2, h3 {
+      margin: 0 0 15px;
+      color: #2c3e50;
+    }
+    h2 {
+      text-align: center;
+      font-size: 2em;
+    }
+    .connection-controls, .mode-movement, .control-params, .sensor-data, .graph {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: flex-start;
+    }
+    .connection-controls {
+      justify-content: center;
+    }
+    .mode-movement {
+      justify-content: space-between;
+    }
+    .control-params {
+      flex-direction: column;
+    }
+    .sensor-data p {
+      margin: 5px 0;
+      font-size: 0.95em;
+    }
+    .graph {
+      justify-content: center;
+    }
+    .graph canvas {
+      width: 400px !important;
+      height: 600px !important;
+    }
+    input, button {
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      font-size: 0.95em;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover:not(.disabled) {
+      background-color: #2980b9;
+    }
+    .disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      font-weight: bold;
+      color: #27ae60;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    input[type="number"] {
+      width: 100px;
+    }
+    @media (max-width: 600px) {
+      .mode-movement {
+        flex-direction: column;
+      }
+      .graph canvas {
+        width: 300px !important;
+        height: 450px !important;
+      }
+    }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
-  <div class="w-full max-w-4xl bg-white rounded-lg shadow-lg p-6">
-    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">ESP32 BLE Controller</h1>
+<body>
+  <div class="container">
+    <h2>Self-Balancing Robot Control</h2>
 
-    <!-- Connection Status -->
-    <div class="mb-4 flex justify-between items-center">
-      <button id="connect" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded">Connect to BLE</button>
-      <span id="status" class="text-gray-600">Disconnected</span>
+    <!-- Connection Controls -->
+    <div class="section connection-controls">
+      <div id="status">Disconnected</div>
+      <button onclick="connect()">Connect to Robot</button>
+      <button onclick="disconnect()">Disconnect</button>
     </div>
 
-    <!-- Tabs -->
-    <div class="border-b border-gray-200">
-      <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500">
-        <li class="mr-2">
-          <button class="tab-button inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300 active" data-tab="controls">Controls</button>
-        </li>
-        <li class="mr-2">
-          <button class="tab-button inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" data-tab="pid">PID Tuning</button>
-        </li>
-        <li class="mr-2">
-          <button class="tab-button inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" data-tab="sensors">Sensors</button>
-        </li>
-        <li class="mr-2">
-          <button class="tab-button inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" data-tab="angle">Angle Plot</button>
-        </li>
-        <li>
-          <button class="tab-button inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" data-tab="debug">Debug Log</button>
-        </li>
-      </ul>
+    <!-- Mode and Movement -->
+    <div class="section mode-movement">
+      <div>
+        <h3>Mode Control</h3>
+        <button onclick="switchMode()">Switch Mode</button>
+        <p>Current Mode: <span id="mode">Balancing</span></p>
+      </div>
+      <div>
+        <h3>Movement (Control Mode Only)</h3>
+        <button id="fwdBtn" onclick="moveForward()" disabled>Forward</button>
+        <button id="bwdBtn" onclick="moveBackward()" disabled>Backward</button>
+      </div>
     </div>
 
-    <!-- Tab Content -->
-    <div id="tab-content" class="mt-4">
-      <!-- Controls Tab -->
-      <div id="controls" class="tab-content">
-        <div class="grid grid-cols-3 gap-4">
-          <button id="forward" disabled class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded disabled:opacity-50">Forward</button>
-          <button id="left" disabled class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded disabled:opacity-50">Left</button>
-          <button id="right" disabled class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded disabled:opacity-50">Right</button>
-          <button id="backward" disabled class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded disabled:opacity-50">Backward</button>
-          <button id="stop" disabled class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Stop</button>
-          <button id="switchMode" disabled class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Switch Mode</button>
-        </div>
-        <div class="mt-4">
-          <p class="text-gray-600">Current Mode: <span id="modeStatus">Balancing Mode</span></p>
-        </div>
-      </div>
+    <!-- Control Parameters -->
+    <div class="section control-params">
+      <h3>Control Parameters</h3>
+      <label>KP: <input type="number" id="kp" step="0.1" value="60.0"></label>
+      <label>KI: <input type="number" id="ki" step="0.1" value="270.0"></label>
+      <label>KD: <input type="number" id="kd" step="0.1" value="2.2"></label>
+      <label>Offset Angle: <input type="number" id="offset" step="0.1" value="1.2"></label>
+      <button onclick="updatePID()">Update PID</button>
+    </div>
 
-      <!-- PID Tuning Tab -->
-      <div id="pid" class="tab-content hidden">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">PID Tuning</h2>
-        <div class="grid grid-cols-3 gap-4">
-          <div>
-            <label class="block text-gray-600">Kp</label>
-            <input id="kp" type="number" step="0.1" value="1.0" class="w-full border rounded p-2" disabled>
-          </div>
-          <div>
-            <label class="block text-gray-600">Ki</label>
-            <input id="ki" type="number" step="0.1" value="0.1" class="w-full border rounded p-2" disabled>
-          </div>
-          <div>
-            <label class="block text-gray-600">Kd</label>
-            <input id="kd" type="number" step="0.1" value="0.5" class="w-full border rounded p-2" disabled>
-          </div>
-        </div>
-        <button id="updatePID" disabled class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded disabled:opacity-50">Update PID</button>
-      </div>
+    <!-- Sensor Data -->
+    <div class="section sensor-data">
+      <h3>Sensor Data</h3>
+      <p>AccX: <span id="accX">0.00</span></p>
+      <p>AccY: <span id="accY">0.00</span></p>
+      <p>AccZ: <span id="accZ">0.00</span></p>
+      <p>GyroX: <span id="gyroX">0.00</span></p>
+      <p>GyroY: <span id="gyroY">0.00</span></p>
+      <p>GyroZ: <span id="gyroZ">0.00</span></p>
+      <p>Angle: <span id="angle">0.00</span> degrees</p>
+      <p>Motor Speed: <span id="motorSpeed">0</span></p>
+    </div>
 
-      <!-- Sensors Tab -->
-      <div id="sensors" class="tab-content hidden">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Sensor Data</h2>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <p class="text-gray-600">Temperature: <span id="temperature">N/A</span> °C</p>
-          </div>
-          <div>
-            <p class="text-gray-600">Gyroscope: <span id="gyroscope">N/A</span></p>
-          </div>
-          <div>
-            <p class="text-gray-600">Accelerometer: <span id="accelerometer">N/A</span></p>
-          </div>
-          <div>
-            <p class="text-gray-600">Battery: <span id="battery">N/A</span>%</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Angle Plot Tab -->
-      <div id="angle" class="tab-content hidden">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Angle Over Time</h2>
-        <canvas id="angleChart" class="w-full h-64"></canvas>
-      </div>
-
-      <!-- Debug Log Tab -->
-      <div id="debug" class="tab-content hidden">
-        <h2 class="text-lg font-semibold text-gray-700 mb-4">Debug Log</h2>
-        <div id="output" class="bg-gray-50 border rounded p-4 h-64 overflow-y-auto text-left text-gray-600"></div>
-      </div>
+    <!-- Tilt Angle Graph -->
+    <div class="section graph">
+      <h3>Tilt Angle Over Time</h3>
+      <canvas id="angleChart"></canvas>
     </div>
   </div>
 
   <script>
-    const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
-    const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
-
-    let bleDevice;
+    let device;
     let characteristic;
-    let isControlMode = false;
-    let angleData = [];
-    let angleChart;
+    let currentMode = 0; // 0: Balancing, 1: Control
 
-    // Initialize Chart
+    // Chart.js Setup
     const ctx = document.getElementById('angleChart').getContext('2d');
-    angleChart = new Chart(ctx, {
+    const angleChart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: [],
         datasets: [{
-          label: 'Angle (degrees)',
+          label: 'Tilt Angle (degrees)',
           data: [],
-          borderColor: 'rgba(75, 192, 192, 1)',
-          fill: false
+          borderColor: '#e74c3c',
+          backgroundColor: 'rgba(231, 76, 60, 0.1)',
+          fill: true,
+          tension: 0.3
         }]
       },
       options: {
-        responsive: true,
+        responsive: false,
         scales: {
-          x: { title: { display: true, text: 'Time' } },
-          y: { title: { display: true, text: 'Angle (degrees)' } }
+          x: {
+            title: { display: true, text: 'Time' },
+            maxTicksLimit: 10
+          },
+          y: {
+            title: { display: true, text: 'Angle (degrees)' },
+            suggestedMin: -40,
+            suggestedMax: 40
+          }
+        },
+        plugins: {
+          legend: { display: true }
         }
       }
     });
 
-    const log = (message) => {
-      const output = document.getElementById('output');
-      const newLog = document.createElement('div');
-      newLog.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-      output.appendChild(newLog);
-      output.scrollTop = output.scrollHeight;
-    };
+    // Update chart with new angle data
+    function updateChart(angle) {
+      const time = new Date().toLocaleTimeString();
+      angleChart.data.labels.push(time);
+      angleChart.data.datasets[0].data.push(angle);
 
-    const updateStatus = (status) => {
-      document.getElementById('status').textContent = status;
-    };
+      // Keep only the last 50 data points
+      if (angleChart.data.labels.length > 50) {
+        angleChart.data.labels.shift();
+        angleChart.data.datasets[0].data.shift();
+      }
+      angleChart.update();
+    }
 
-    const connectToBLE = async () => {
+    async function connect() {
       try {
-        log('Requesting BLE device...');
-        bleDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [SERVICE_UUID]
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'] }]
         });
-
-        log('Connecting to GATT server...');
-        const server = await bleDevice.gatt.connect();
-
-        log('Getting service...');
-        const service = await server.getPrimaryService(SERVICE_UUID);
-
-        log('Getting characteristic...');
-        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-        log('Starting notifications...');
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
+        characteristic = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
         await characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-
-        log('Connected to BLE device!');
-        updateStatus('Connected');
-        enableControls(true);
-
-        bleDevice.addEventListener('gattserverdisconnected', () => {
-          log('Device disconnected');
-          updateStatus('Disconnected');
-          enableControls(false);
-        });
+        characteristic.addEventListener('characteristicvaluechanged', handleData);
+        document.getElementById('status').textContent = 'Connected';
       } catch (error) {
-        log(`Error: ${error.message}`);
-        updateStatus('Error');
+        console.error('Connection failed:', error);
+        document.getElementById('status').textContent = 'Connection failed';
       }
-    };
+    }
 
-    const handleNotifications = (event) => {
-      const value = new TextDecoder().decode(event.target.value);
-      log(`Received: ${value}`);
-
-      // Parse sensor data (assuming format: "SENSOR:TEMP=25.5,GYRO=1.2,ACC=0.9,BATT=75,ANGLE=10.5")
-      if (value.startsWith('SENSOR:')) {
-        const data = value.split(':')[1].split(',');
-        const sensorData = {};
-        data.forEach(item => {
-          const [key, val] = item.split('=');
-          sensorData[key] = parseFloat(val);
-        });
-
-        // Update sensor display
-        document.getElementById('temperature').textContent = sensorData.TEMP || 'N/A';
-        document.getElementById('gyroscope').textContent = sensorData.GYRO || 'N/A';
-        document.getElementById('accelerometer').textContent = sensorData.ACC || 'N/A';
-        document.getElementById('battery').textContent = sensorData.BATT || 'N/A';
-
-        // Update angle chart
-        if (sensorData.ANGLE) {
-          const time = new Date().toLocaleTimeString();
-          angleData.push({ time, angle: sensorData.ANGLE });
-          if (angleData.length > 50) angleData.shift(); // Keep last 50 points
-          angleChart.data.labels = angleData.map(d => d.time);
-          angleChart.data.datasets[0].data = angleData.map(d => d.angle);
-          angleChart.update();
-        }
+    function disconnect() {
+      if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+        document.getElementById('status').textContent = 'Disconnected';
+        currentMode = 0;
+        updateModeUI();
+        // Reset chart
+        angleChart.data.labels = [];
+        angleChart.data.datasets[0].data = [];
+        angleChart.update();
       }
-    };
+    }
 
-    const sendCommand = async (command) => {
-      if (characteristic) {
-        const data = new TextEncoder().encode(command);
-        await characteristic.writeValue(data);
-        log(`Sent: ${command}`);
+    function handleData(event) {
+      const value = event.target.value;
+      const data = new TextDecoder().decode(value).split(',');
+      document.getElementById('accX').textContent = data[0];
+      document.getElementById('accY').textContent = data[1];
+      document.getElementById('accZ').textContent = data[2];
+      document.getElementById('gyroX').textContent = data[3];
+      document.getElementById('gyroY').textContent = data[4];
+      document.getElementById('gyroZ').textContent = data[5];
+      const angle = parseFloat(data[6]);
+      document.getElementById('angle').textContent = angle.toFixed(2);
+      document.getElementById('motorSpeed').textContent = data[7];
+      currentMode = parseInt(data[8]);
+      updateModeUI();
+      updateChart(angle);
+    }
+
+    function updateModeUI() {
+      const modeText = currentMode == 0 ? 'Balancing' : 'Control';
+      document.getElementById('mode').textContent = modeText;
+      const fwdBtn = document.getElementById('fwdBtn');
+      const bwdBtn = document.getElementById('bwdBtn');
+      if (currentMode == 1) {
+        fwdBtn.disabled = false;
+        bwdBtn.disabled = false;
+        fwdBtn.classList.remove('disabled');
+        bwdBtn.classList.remove('disabled');
+      } else {
+        fwdBtn.disabled = true;
+        bwdBtn.disabled = true;
+        fwdBtn.classList.add('disabled');
+        bwdBtn.classList.add('disabled');
       }
-    };
+    }
 
-    const enableControls = (enabled) => {
-      document.getElementById('forward').disabled = !enabled;
-      document.getElementById('backward').disabled = !enabled;
-      document.getElementById('left').disabled = !enabled;
-      document.getElementById('right').disabled = !enabled;
-      document.getElementById('stop').disabled = !enabled;
-      document.getElementById('switchMode').disabled = !enabled;
-      document.getElementById('kp').disabled = !enabled;
-      document.getElementById('ki').disabled = !enabled;
-      document.getElementById('kd').disabled = !enabled;
-      document.getElementById('updatePID').disabled = !enabled;
-    };
+    function switchMode() {
+      if (!device || !device.gatt.connected) return;
+      currentMode = currentMode == 0 ? 1 : 0;
+      const cmd = `MODE:${currentMode}`;
+      characteristic.writeValue(new TextEncoder().encode(cmd));
+    }
 
-    // Tab switching
-    document.querySelectorAll('.tab-button').forEach(button => {
-      button.addEventListener('click', () => {
-        const tab = button.getAttribute('data-tab');
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
-        document.getElementById(tab).classList.remove('hidden');
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('border-blue-500', 'text-gray-600'));
-        button.classList.add('border-blue-500', 'text-gray-600');
-      });
-    });
+    function moveForward() {
+      if (currentMode != 1 || !device || !device.gatt.connected) return;
+      characteristic.writeValue(new TextEncoder().encode('CMD:FWD'));
+    }
 
-    // Event Listeners
-    document.getElementById('connect').addEventListener('click', connectToBLE);
+    function moveBackward() {
+      if (currentMode != 1 || !device || !device.gatt.connected) return;
+      characteristic.writeValue(new TextEncoder().encode('CMD:BWD'));
+    }
 
-    document.getElementById('forward').addEventListener('click', () => sendCommand('CMD:FWD'));
-    document.getElementById('backward').addEventListener('click', () => sendCommand('CMD:BWD'));
-    document.getElementById('left').addEventListener('click', () => sendCommand('CMD:LEFT'));
-    document.getElementById('right').addEventListener('click', () => sendCommand('CMD:RIGHT'));
-    document.getElementById('stop').addEventListener('click', () => sendCommand('CMD:STOP'));
-
-    document.getElementById('switchMode').addEventListener('click', () => {
-      isControlMode = !isControlMode;
-      sendCommand(`MODE:${isControlMode ? 1 : 0}`);
-      log(`Switched to ${isControlMode ? 'Control Mode' : 'Balancing Mode'}`);
-      document.getElementById('modeStatus').textContent = isControlMode ? 'Control Mode' : 'Balancing Mode';
-    });
-
-    document.getElementById('updatePID').addEventListener('click', () => {
+    function updatePID() {
       const kp = document.getElementById('kp').value;
       const ki = document.getElementById('ki').value;
       const kd = document.getElementById('kd').value;
-      sendCommand(`PID:${kp},${ki},${kd}`);
-      log(`Updated PID: Kp=${kp}, Ki=${ki}, Kd=${kd}`);
-    });
+      const offset = document.getElementById('offset').value;
+      const cmd = `PID:${kp},${ki},${kd},${offset}`;
+      characteristic.writeValue(new TextEncoder().encode(cmd));
+    }
 
-    // Show controls tab by default
-    document.querySelector('.tab-button[data-tab="controls"]').click();
+    window.onbeforeunload = () => disconnect();
   </script>
 </body>
 </html>
