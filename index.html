@@ -1,119 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PID Tuning via Web Bluetooth</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      text-align: center;
-    }
-    .slider-container {
-      margin: 20px 0;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 10px;
-      font-size: 16px;
-    }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 PID Tuner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+ Planus {
+        .range::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .range::-webkit-slider-runnable-track {
+            background: #e5e7eb;
+            height: 10px;
+            border-radius: 5px;
+        }
+    </style>
 </head>
-<body>
-  <h1>PID Tuning via Web Bluetooth</h1>
-  <button id="connectBtn">Connect to Bluetooth</button>
-  <button id="disconnectBtn" disabled>Disconnect</button>
-  
-  <div class="slider-container">
-    <label for="kp">Kp: <span id="kpValue">1.5</span></label><br>
-    <input type="range" id="kp" min="0" max="10" step="0.1" value="1.5">
-  </div>
-  <div class="slider-container">
-    <label for="ki">Ki: <span id="kiValue">0.5</span></label><br>
-    <input type="range" id="ki" min="0" max="5" step="0.01" value="0.5">
-  </div>
-  <div class="slider-container">
-    <label for="kd">Kd: <span id="kdValue">0.1</span></label><br>
-    <input type="range" id="kd" min="0" max="1" step="0.01" value="0.1">
-  </div>
-  
-  <div id="status">Disconnected</div>
-
-  <script>
-    let device, characteristic;
-
-    // Update slider value displays
-    function updateSliderValues() {
-      document.getElementById('kpValue').textContent = document.getElementById('kp').value;
-      document.getElementById('kiValue').textContent = document.getElementById('ki').value;
-      document.getElementById('kdValue').textContent = document.getElementById('kd').value;
-    }
-
-    // Send PID parameters via Bluetooth
-    async function sendPIDParameters() {
-      if (!characteristic) return;
-      const kp = document.getElementById('kp').value;
-      const ki = document.getElementById('ki').value;
-      const kd = document.getElementById('kd').value;
-      const data = `KP:${kp},KI:${ki},KD:${kd}\n`;
-      try {
-        await characteristic.writeValue(new TextEncoder().encode(data));
-        document.getElementById('status').textContent = `Sent: ${data.trim()}`;
-      } catch (error) {
-        document.getElementById('status').textContent = `Error: ${error}`;
-      }
-    }
-
-    // Connect to Bluetooth device
-    document.getElementById('connectBtn').addEventListener('click', async () => {
-      try {
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'HC' }], // Adjust for your Bluetooth module name
-          optionalServices: ['00001101-0000-1000-8000-00805f9b34fb'] // UART service
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-        characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4">ESP32 PID Tuner</h1>
         
-        document.getElementById('status').textContent = `Connected to ${device.name}`;
-        document.getElementById('connectBtn').disabled = true;
-        document.getElementById('disconnectBtn').disabled = false;
+        <div class="mb-4">
+            <button id="connectBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full">
+                Connect to ESP32
+            </button>
+        </div>
 
-        // Send initial PID parameters
-        await sendPIDParameters();
-      } catch (error) {
-        document.getElementById('status').textContent = `Error: ${error}`;
-      }
-    });
+        <div class="mb-4 hidden" id="pidControls">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Kp</label>
+                <input type="range" id="kp" min="0" max="10" step="0.1" value="2.5" class="range w-full">
+                <span id="kpValue" class="text-sm text-gray-600">2.5</span>
+            </div>
 
-    // Disconnect from Bluetooth device
-    document.getElementById('disconnectBtn').addEventListener('click', () => {
-      if (device && device.gatt.connected) {
-        device.gatt.disconnect();
-        document.getElementById('status').textContent = 'Disconnected';
-        document.getElementById('connectBtn').disabled = false;
-        document.getElementById('disconnectBtn').disabled = true;
-        characteristic = null;
-        device = null;
-      }
-    });
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Ki</label>
+                <input type="range" id="ki" min="0" max="2" step="0.01" value="0.5" class="range w-full">
+                <span id="kiValue" class="text-sm text-gray-600">0.5</span>
+            </div>
 
-    // Update PID parameters on slider change
-    ['kp', 'ki', 'kd'].forEach(id => {
-      document.getElementById(id).addEventListener('input', () => {
-        updateSliderValues();
-        sendPIDParameters();
-      });
-    });
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Kd</label>
+                <input type="range" id="kd" min="0" max="5" step="0.01" value="1.0" class="range w-full">
+                <span id="kdValue" class="text-sm text-gray-600">1.0</span>
+            </div>
 
-    // Initialize slider values
-    updateSliderValues();
-  </script>
+            <div class="mb-4">
+                <p class="text-sm font-medium text-gray-700">Status:</p>
+                <p id="status" class="text-sm text-gray-600">Disconnected</p>
+                <p id="encoder" class="text-sm text-gray-600">Encoder: 0</p>
+                <p id="error" class="text-sm text-gray-600">Error: 0</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const PID_CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        const STATUS_CHAR_UUID = "d7e84cb2-ff39-4f3e-9566-2f8a5c7f3e0b";
+
+        let device, pidCharacteristic, statusCharacteristic;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const pidControls = document.getElementById('pidControls');
+        const statusEl = document.getElementById('status');
+        const encoderEl = document.getElementById('encoder');
+        const errorEl = document.getElementById('error');
+
+        const kpSlider = document.getElementById('kp');
+        const kiSlider = document.getElementById('ki');
+        const kdSlider = document.getElementById('kd');
+        const kpValue = document.getElementById('kpValue');
+        const kiValue = document.getElementById('kiValue');
+        const kdValue = document.getElementById('kdValue');
+
+        connectBtn.addEventListener('click', async () => {
+            try {
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'ESP32_PID_Tuner' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                const server = await device.gatt.connect();
+                statusEl.textContent = 'Connected';
+                connectBtn.textContent = 'Disconnect';
+                pidControls.classList.remove('hidden');
+
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                pidCharacteristic = await service.getCharacteristic(PID_CHAR_UUID);
+                statusCharacteristic = await service.getCharacteristic(STATUS_CHAR_UUID);
+
+                await statusCharacteristic.startNotifications();
+                statusCharacteristic.addEventListener('characteristicvaluechanged', handleStatusUpdate);
+            } catch (error) {
+                console.error('Error:', error);
+                statusEl.textContent = 'Error connecting';
+            }
+        });
+
+        function handleStatusUpdate(event) {
+            const value = event.target.value.buffer;
+            const view = new DataView(value);
+            const encoder = view.getFloat32(0, true);
+            const error = view.getFloat32(4, true);
+            const kp = view.getFloat32(8, true);
+            const ki = view.getFloat32(12, true);
+
+            encoderEl.textContent = `Encoder: ${encoder.toFixed(1)}`;
+            errorEl.textContent = `Error: ${error.toFixed(1)}`;
+            kpSlider.value = kp;
+            kiSlider.value = ki;
+            kpValue.textContent = kp.toFixed(2);
+            kiValue.textContent = ki.toFixed(2);
+        }
+
+        async function sendPidValues() {
+            if (!pidCharacteristic) return;
+
+            const kp = parseFloat(kpSlider.value);
+            const ki = parseFloat(kiSlider.value);
+            const kd = parseFloat(kdSlider.value);
+
+            const buffer = new ArrayBuffer(12);
+            const view = new DataView(buffer);
+            view.setFloat32(0, kp, true);
+            view.setFloat32(4, ki, true);
+            view.setFloat32(8, kd, true);
+
+            try {
+                await pidCharacteristic.writeValue(buffer);
+            } catch (error) {
+                console.error('Error writing PID values:', error);
+            }
+        }
+
+        kpSlider.addEventListener('input', () => {
+            kpValue.textContent = kpSlider.value;
+            sendPidValues();
+        });
+
+        kiSlider.addEventListener('input', () => {
+            kiValue.textContent = kiSlider.value;
+            sendPidValues();
+        });
+
+        kdSlider.addEventListener('input', () => {
+            kdValue.textContent = kdSlider.value;
+            sendPidValues();
+        });
+
+        connectBtn.addEventListener('click', async () => {
+            if (device && device.gatt.connected) {
+                await device.gatt.disconnect();
+                statusEl.textContent = 'Disconnected';
+                connectBtn.textContent = 'Connect to ESP32';
+                pidControls.classList.add('hidden');
+            }
+        });
+    </script>
 </body>
 </html>
